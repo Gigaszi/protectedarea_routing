@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "test_no_rules",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "id": null }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ 10.736352355414944, 48.143375285668533 ], [ 10.692922744483505, 48.410901689006188 ], [ 10.986506914380026, 48.449119746625854 ], [ 10.734615170977687, 48.143375285668533 ] ] ] } }
+]
+}
