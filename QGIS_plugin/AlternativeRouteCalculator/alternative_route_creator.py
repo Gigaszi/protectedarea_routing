@@ -38,6 +38,7 @@ from shapely.geometry import shape
 from shapely.ops import unary_union
 import shapely
 from openrouteservice import client
+import pandas as pd
 
 
 class AlternativeRouteCreator:
@@ -187,7 +188,7 @@ class AlternativeRouteCreator:
                 action)
             self.iface.removeToolBarIcon(action)
 
-    def decode_polyline(polyline, is3d=False):
+    def decode_polyline(self, polyline, is3d=False):
         """Decodes a Polyline string into a GeoJSON geometry.
         :param polyline: An encoded polyline, only the geometry.
         :type polyline: string
@@ -252,7 +253,7 @@ class AlternativeRouteCreator:
 
         return geojson
 
-    def coord_lister(geom, geom_list):
+    def coord_lister(self, geom, geom_list):
         coords = []
         for coord in geom.coords:
             for x in coord:
@@ -262,7 +263,7 @@ class AlternativeRouteCreator:
 
     def select_output_file(self):
         filename, _filter = QFileDialog.getSaveFileName(
-            self.dlg, "Select   output file ", "", '*.txt')
+            self.dlg, "Select   output file ", "", '*.gpkg')
         self.dlg.lineEdit_2.setText(filename)
 
     def run(self):
@@ -300,13 +301,50 @@ class AlternativeRouteCreator:
             with open(filename, 'w') as output_file:
                 selectedRouteLayerIndex = self.dlg.comboBox.currentIndex()
                 selectedRouteLayer = layers[selectedRouteLayerIndex].layer()
-                selectedPolygonLayerIndex = self.dlg.comboBox.currentIndex()
+                selectedPolygonLayerIndex = self.dlg.comboBox_2.currentIndex()
                 selectedPolygonLayer = layers[selectedPolygonLayerIndex].layer()
-
+                selectedRouteLayerText = self.dlg.comboBox.currentText()
+                output_file.write(str(selectedRouteLayerText))
             buffer = 30
 
-            gdf = gpd.read_file(selectedPolygonLayer)
-            input_df = gpd.read_file(selectedRouteLayer)
+
+            # open route layer
+            layer = layers[selectedRouteLayerIndex].layer()
+            # for standalone case, comment above and uncomment below
+            # layer = iface.activeLayer()
+
+            columns = [f.name() for f in layer.fields()] + ['geometry']
+            columns_types = [f.typeName() for f in layer.fields()]  # We exclude the geometry. Human readable
+            # or
+            # columns_types = [f.type() for f in layer.fields()] # QVariant type
+            row_list = []
+            for f in layer.getFeatures():
+                row_list.append(dict(zip(columns, f.attributes() + [f.geometry().asWkt()])))
+
+            df = pd.DataFrame(row_list, columns=columns)
+            df['geometry'] = gpd.GeoSeries.from_wkt(df['geometry'])
+            input_df = gpd.GeoDataFrame(df, geometry='geometry')
+            input_df = input_df.set_crs(crs=layer.crs().toWkt())
+
+            # open avoid polygons layer
+            layer = layers[selectedPolygonLayerIndex].layer()
+            # for standalone case, comment above and uncomment below
+            # layer = iface.activeLayer()
+
+            columns = [f.name() for f in layer.fields()] + ['geometry']
+            columns_types = [f.typeName() for f in layer.fields()]  # We exclude the geometry. Human readable
+            # or
+            # columns_types = [f.type() for f in layer.fields()] # QVariant type
+            row_list = []
+            for f in layer.getFeatures():
+                row_list.append(dict(zip(columns, f.attributes() + [f.geometry().asWkt()])))
+
+            df = pd.DataFrame(row_list, columns=columns)
+            df['geometry'] = gpd.GeoSeries.from_wkt(df['geometry'])
+            gdf = gpd.GeoDataFrame(df, geometry='geometry')
+            gdf = gdf.set_crs(crs=layer.crs().toWkt())
+
+           # gdf = gpd.read_file(selectedRouteLayerText)
             mm = input_df.bounds
             input_df = input_df.to_crs(epsg=25832)
 
@@ -343,14 +381,18 @@ class AlternativeRouteCreator:
             pois_json = json.loads(clipped_pois.to_json())
 
             point_list = []
-
-            clipped_pois.geometry.apply(coord_lister, geom_list=point_list)
-
-            alternative_route = ors_client.directions(coordinates=point_list, profile="foot-hiking",
+            try:
+                clipped_pois.geometry.apply(self.coord_lister, geom_list=point_list)
+            except:
+                raise Exception(clipped_pois.geometry)
+            try:
+                alternative_route = ors_client.directions(coordinates=point_list, profile="foot-hiking",
                                                       geometry_simplify=True,
                                                       options=options)
+            except:
+                raise Exception(options)
 
-            geoj = decode_polyline(alternative_route["routes"][0]["geometry"])
+            geoj = self.decode_polyline(alternative_route["routes"][0]["geometry"])
 
             with open(self.dlg.lineEdit_2.text(), 'w') as f:
                 json.dump(geoj, f)
