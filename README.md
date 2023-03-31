@@ -34,5 +34,14 @@ After that u can start the Model Builder and load the models in it. In order to 
 
 ## QGIS Plugin
 
+###Warning: Currently there seems to be a problem with the requirements for the plugin. See ([#11]) 
+[#11:https://github.com/Gigaszi/protectedarea_routing/issues/11]
+
 In order to use the plugin, the user first needs to add the plugin directory to the python plugin directory. With Settings > User Profiles > Open Active Profile Folder the user can locate the current profile folder. From there the user can navigate to python > plugins and paste the AlternativeRouteCalculator directory there.
+The Python enviroment QGIS is using needs to fit the requirements. For this the user can navigate to QGIS_plugin/AlternativeRouteCalculator and run 
+
+```
+pip install -r requirements.txt
+```
+
 Now the user can install the plugin after restarting QGIS via Plugins > Manage and Install Plugins. To run the plugin an API key from the openrouteservice is needed. It can be create for free on [the website of the openrouteservice](https://openrouteservice.org/)
