@@ -1,16 +1,19 @@
-import geopandas as gpd
-import click
 import json
+
+import click
+import geopandas as gpd
 import requests
-from shapely.geometry import shape
-from shapely.ops import unary_union
 import shapely
 from openrouteservice import client
+from shapely.geometry import shape
+from shapely.ops import unary_union
+
 from download_protected_areas import createDataframe
 
 
-
-@click.group(help="CLI tool to analyse routes and their intersection with protected areas.")
+@click.group(
+    help="CLI tool to analyse routes and their intersection with protected areas."
+)
 def cli():
     click.echo()
     pass
@@ -18,10 +21,19 @@ def cli():
 
 @cli.command("getPermissions")
 @click.option("--infile", required=True, type=str, help="Path to file for analysis.")
-@click.option("--buffer", required=False, type=int, help="Buffer width in meters. Areas within the buffer are also included.")
-@click.option("--outfile", required=False, type=str, help="Path to output file (Input file with information attached).")
+@click.option(
+    "--buffer",
+    required=False,
+    type=int,
+    help="Buffer width in meters. Areas within the buffer are also included.",
+)
+@click.option(
+    "--outfile",
+    required=False,
+    type=str,
+    help="Path to output file (Input file with information attached).",
+)
 def getPermissions(infile, buffer, outfile):
-
     """
     Get the rules of every protected area crossed by the given infile.
     """
@@ -34,7 +46,7 @@ def getPermissions(infile, buffer, outfile):
     except:
         click.echo("Couldn't open the input file.")
     if buffer is not None:
-        input_df['geometry'] = input_df.geometry.buffer(buffer)
+        input_df["geometry"] = input_df.geometry.buffer(buffer)
     df = gpd.sjoin(input_df, gdf, how="left")
     if bool(df["index_right"].isnull().values.all()) is True:
         click.echo("No protected areas crossed.")
@@ -47,14 +59,13 @@ def getPermissions(infile, buffer, outfile):
         else:
             click.echo(row[1]["comments"].replace(". ", ". \n"))
     if outfile is not None:
-        df.to_file(outfile,driver='GPKG', layer='protected_areas_crossing')
+        df.to_file(outfile, driver="GPKG", layer="protected_areas_crossing")
 
 
 @cli.command("getCrossingPaths")
 @click.option("--infile", required=True, type=str, help="Path to file for analysis.")
 @click.option("--outfile", required=True, type=str, help="Path to output file.")
 def getCrossingPaths(infile, outfile):
-
     """
     Identify the parts of the specified route that pass through protected areas.
     """
@@ -69,15 +80,19 @@ def getCrossingPaths(infile, outfile):
     df = gpd.sjoin(input_df, gdf, how="left")
     df = df.to_crs(epsg=25832)
     output_gdf = df.clip(gdf)
-    output_gdf.to_file(outfile, driver='GPKG', layer='protected_areas_crossing')
+    output_gdf.to_file(outfile, driver="GPKG", layer="protected_areas_crossing")
 
 
 @cli.command("getCrossedAreas")
 @click.option("--infile", required=True, type=str, help="Path to file for analysis.")
-@click.option("--buffer", required=False, type=int, help="Buffer width in meters. Areas within the buffer are also included.")
+@click.option(
+    "--buffer",
+    required=False,
+    type=int,
+    help="Buffer width in meters. Areas within the buffer are also included.",
+)
 @click.option("--outfile", required=True, type=str, help="Path to output file.")
 def getCrossedArea(infile, buffer, outfile):
-
     """
     Get the areas crossed by the given route.
     """
@@ -90,17 +105,21 @@ def getCrossedArea(infile, buffer, outfile):
     except:
         click.echo("Couldn't open the input file.")
     if buffer is not None:
-        input_df['geometry'] = input_df.geometry.buffer(buffer)
-    df = gpd.sjoin(gdf, input_df, how='inner', predicate='intersects')
-    df.to_file(outfile, driver='GPKG', layer='protected_areas_crossing')
+        input_df["geometry"] = input_df.geometry.buffer(buffer)
+    df = gpd.sjoin(gdf, input_df, how="inner", predicate="intersects")
+    df.to_file(outfile, driver="GPKG", layer="protected_areas_crossing")
 
 
 @cli.command("getAlternativeRoute")
 @click.option("--infile", required=True, type=str, help="Path to file for analysis.")
 @click.option("--outfile", required=True, type=str, help="Path to output file.")
-@click.option("--api_key", required=True, type=str, help="A valid key for the Openreouteservice API.")
+@click.option(
+    "--api_key",
+    required=True,
+    type=str,
+    help="A valid key for the Openreouteservice API.",
+)
 def getAlternativeRoute(infile, outfile, api_key):
-
     """
     Get an alternative route that avoids all protected areas and reaches all POIs around the original route (outside of a protected area).
     """
@@ -166,7 +185,7 @@ def getAlternativeRoute(infile, outfile, api_key):
             else:
                 points.append([round(lng * 1e-5, 6), round(lat * 1e-5, 6)])
 
-        geojson = {u"type": u"LineString", u"coordinates": points}
+        geojson = {"type": "LineString", "coordinates": points}
 
         return geojson
 
@@ -186,14 +205,14 @@ def getAlternativeRoute(infile, outfile, api_key):
     input_df = input_df.to_crs(epsg=25832)
 
     bbox = [[mm["minx"][0], mm["miny"][0]], [mm["maxx"][0], mm["maxy"][0]]]
-    input_df['geometry'] = input_df.geometry.buffer(buffer)
+    input_df["geometry"] = input_df.geometry.buffer(buffer)
 
     try:
         ors_client = client.Client(key=api_key)
     except:
         click.echo("API key is wrong!")
     input_df = input_df.to_crs("EPSG:4326")
-    crossed_areas = gpd.sjoin(gdf, input_df, how='inner', predicate='intersects')
+    crossed_areas = gpd.sjoin(gdf, input_df, how="inner", predicate="intersects")
     poly_list = []
     for i, row in crossed_areas.iterrows():
         poly_list.append(row["geometry"])
@@ -204,9 +223,8 @@ def getAlternativeRoute(infile, outfile, api_key):
     iso_params = {
         "bbox": bbox,
         "request": "pois",
-        #TODO:
+        # TODO:
         # optimize filter_category
-
         # "filter_category_group_ids": [620, 220, 100, 330, 260],
     }
 
@@ -215,7 +233,7 @@ def getAlternativeRoute(infile, outfile, api_key):
     for feature in request["features"]:
         geom.append(shape(feature["geometry"]))
 
-    pois = gpd.GeoDataFrame({'geometry': geom})
+    pois = gpd.GeoDataFrame({"geometry": geom})
     pois = pois.set_crs("EPSG:4326")
     pois_outside_protected_areas = pois.overlay(gdf, how="difference")
     clipped_pois = pois_outside_protected_areas.clip(input_df)
@@ -225,13 +243,18 @@ def getAlternativeRoute(infile, outfile, api_key):
 
     clipped_pois.geometry.apply(coord_lister, geom_list=point_list)
 
-    alternative_route = ors_client.directions(coordinates=point_list, profile="foot-hiking", geometry_simplify=True,
-                                              options=options)
+    alternative_route = ors_client.directions(
+        coordinates=point_list,
+        profile="foot-hiking",
+        geometry_simplify=True,
+        options=options,
+    )
 
     geoj = decode_polyline(alternative_route["routes"][0]["geometry"])
 
-    with open(outfile, 'w') as f:
+    with open(outfile, "w") as f:
         json.dump(geoj, f)
+
 
 @cli.command("createDataframe")
 def getCrossingPaths():
@@ -241,5 +264,6 @@ def getCrossingPaths():
     createDataframe()
     click.echo("Dataframe creaction successfull.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     cli()
